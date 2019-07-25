@@ -1,0 +1,996 @@
+shell脚本
+ls cd pwd    1  0
+100
+pstree  查看进程树
+cat /etc/shells   查看系统拥有的解释器
+yum -y install ksh  安装新解释器
+bash的优点: 历史记录, 快捷键,tab键, 管道, 重定向
+
+标准的脚本构成
+1,声明解释器
+   #!/bin/bash
+2,注释 脚本功能, 变量含义 , 每个步骤要解决的问题,等 ...
+3,具体代码
+
+脚本执行方式:
+1,赋予x执行权限,然后使用绝对或相对路径运行该文件
+2,使用解释器直接执行脚本,即使没有x权限也可以
+	bash  test1.sh     //新开启bash进程执行test1.sh,脚本执行完毕后,新开启的bash自动退出
+3,使用source命令执行脚本   //不开启新解释器,使用当前解释器执行脚本
+	source  test1.sh     //source可以简写 .
+
+#!/bin/bash
+mkdir abc
+cd abc
+sleep 1000
+
+编写一键部署yum脚本
+#!/bin/bash
+rm -rf /etc/yum.repos.d/*.repo
+echo "[abc]
+name=test
+baseurl=http://172.25.254.254/content/rhel7.0/x86_64/dvd/
+enabled=1
+gpgcheck=0" > /etc/yum.repos.d/abc.repo
+
+编写一键部署vsftpd脚本
+#!/bin/bash
+yum -y install vsftpd  &> /dev/null
+systemctl start vsftpd
+systemctl enable vsftpd
+
+systemctl stop firewalld   //脚本写完关闭防火墙测试服务
+
+常量 固定不变的内容
+变量 存储可能会发生变化的内容, 增加脚本灵活
+
+变量类型:
+1,自定义变量, 变量名称可以使用字母,数字,下划线,不能以数字开头,不能使用特殊符号 
+a=10   定义变量
+unset a   取消变量
+echo ${a}RMB   加{ } 分隔变量名与常量  
+2,环境变量  USER  UID  HOME(家目录)  SHELL(解释器)  PATH(命令程序存放路径)  PS1(一级提示符)  PS2(二级提示符)
+echo $USER   查看当前用户名
+echo $UID    查看当前用户id号
+3,位置变量  $1  $2   $3 ......
+4,预定义变量  $0   $$   $?  $#  $*
+
+#!/bin/bash
+echo $1 脚本后跟的第1个参数
+echo $2 脚本后跟的第2个参数
+echo $3 脚本后跟的第3个参数
+echo $$ 当前脚本的进程号
+echo $# 位置变量的个数
+echo $* 所有位置变量
+echo $? 上一条指令的结果, 0是正常, 非0是异常
+echo $0 执行脚本的名字
+echo $! 最后一条放入后台的程序进程号,可以用sleep 1000 &测试
+
+env  查看所有环境变量
+set  查看所有变量
+
+利用位置变量编写创建账户配置密码脚本
+[root@desktop0 opt]#cat test6.sh 
+#!/bin/bash
+useradd $1
+echo $2 |passwd --stdin $1
+[root@desktop0 opt]#bash test6.sh xyz 789
+
+""  界定范围   
+''   界定范围,可以屏蔽特殊符号
+touch a b	 //创建2个文件
+touch "a b"   //创建1个文件
+touch 'x y'   //创建1个文件
+a=10			
+echo "$a"    //显示变量的值(内容)
+echo '$a'	 //显示$a,$是特殊符号,功能被屏蔽
+
+``(反撇)    获取指令的结果
+a=date      //定义变量a,内容是date
+a=`date`	//定义变量a,内容是date命令执行的结果
+
+stty -echo   //关闭回显
+stty echo	//恢复回显
+
+#!/bin/bash
+read -p "请输入用户名" u
+useradd $u
+stty -echo
+read -p "请输入密码" p
+stty echo
+echo $p |passwd --stdin $u
+
+发布全局变量
+a=10 局部变量
+echo $a   //测试
+bash    //开启新解释器(进入子进程)
+echo $a   //测试,没有值
+exit     //退出新解释器
+export a=10    //创建新变量,并发布成全局变量
+export a		//对已有的变量,发布全局
+bash
+echo $a   //测试,有值,因为a已经成为全局变量
+exit
+export -n a		//撤销全局变量,恢复局部变量
+bash
+echo $a   //测试,无值,已经撤销
+exit
+
+shell中的运算
+1,  
+expr 1 + 1   或者  expr $a + 1  
+expr 1 - 1		  .....
+expr 1 \* 1
+expr 1 / 1
+expr 1 % 1   求模(取余数)
+
+\ 转义符号,屏蔽之后一个字符的特殊含义
+
+2,
+echo $[1+1]  或者  echo $[a+1]
+echo $[1-1]		 echo $[a-a]
+echo $[1*1]
+echo $[1/1]
+echo $[1%1]
+
+3,let  可以改变变量本身的值, 不显示结果
+let a=a+1  要写成  let a++
+let a=a+2  要写成  let a+=2
+let a=a-1  要写成  let a--
+let a=a*10       let a*=10
+let a=a/5        let a/=5
+...
+echo $a   查看结果
+4,
+echo "1+1" | bc			//使用bc进行非交互式计算
+echo "1.1+1" | bc	    //并且可以计算小数
+echo "10/3" | bc		//不定义小数点后面长度
+echo "scale=3;10/3" | bc  //定义小数点后面长度是3位
+
+规范的脚本构成
+1,声明解释器
+#!/bin/bash
+2,注释
+3,代码
+
+bash优点   历史记录, 快捷键,tab,管道,重定向,别名
+变量
+1,自定义变量    UserTest
+	unset
+2,环境变量  USER UID HOME SHELL PS1 PS2 PATH
+	env
+	set | grep XXX
+3,位置变量  $1  $2  $3  .....
+4,预定义变量  $0   $#   $*   $$   $?    $!
+
+""  
+''
+``
+read -p "提示信息"   x
+stty -echo
+stty  echo
+
+a=10 局部变量
+export a
+
+运算
+expr $a + $b
+expr 1 \* 1
+expr 10 % 3
+
+$[]     $((  ))
+
+echo $[a+b]
+echo $[1*1]
+
+let a=a+10
+let a++
+	a--
+	a+=10
+echo "1.1+1" | bc
+echo "scale=3;10/3" | bc
+
+
+条件测试:
+1,字符串  == 是否相等        !=  是否不相等
+[ abc == abc ]    //常量对比,echo $?得到结果0
+[ abc == xyz ]    //常量对比,echo $?得到结果非0
+[ $USER == root ]  //使用环境变量对比当前用户身份
+
+逻辑判断 
+&&   且   前面任务成功,才执行后续任务
+||	或  前面任务失败,才执行后续任务
+;    前面任务执行完毕后,继续执行后续任务,前后无逻辑关系
+
+XX
+XX2
+XX3
+
+XX ; XX2 ;XX3
+
+[ $USER == root ] && echo 123   //如果当前用户是管理员,才输出123
+[ $USER != root ] && echo 123   //如果当前用户不是管理员,才输出123
+[ $USER == root ] || echo 123   //如果当前用户不是管理员,才输出123   
+休息10:05回
+
+
+[ $USER == root ] && echo "我是管理员"  || echo "我不是管理员"
+
+-z  判断是否为空
+
+使用 -z 优化创建用户的脚本,如果没有输入用户名直接回车则退出脚本
+#!/bin/bash
+read -p "请输入账户名"  u
+[ -z "$u" ] && exit
+useradd $u
+
+#!/bin/bash
+yum list installed  | grep vsftpd  &>  /dev/null
+[ $? == 0 ]  && exit
+yum -y install vsftpd
+
+
+-eq等于  -ne不等于   -gt大于   -ge大于等于   -lt小于   -le小于等于
+
+编写脚本,每2分钟检查系统登录的用户数量,如果超过3人,则发邮件给管理员报警
+#!/bin/bash
+n=`who |wc -l`
+[ $n -gt 3 ] && echo "报警,有人攻击服务器!!"  | mail -s test root
+或
+[ $n -gt 3 ] && mail -s test root < a.txt   //需要提前准备a.txt文件,文件的内容就是邮件内容
+
+chmod u+x test3.sh     //给脚本赋予x权限
+crontab -e
+*/2 * * * *  /opt/test3.sh     //每2分钟执行一次脚本
+
+rm /var/spool/mail/root    //管理员的邮件,可以先删除此文件
+
+文件测试, 加 ! 可取反测试
+-e 是否存在,不分文件类别
+[ -e /opt/abc ]    //判断abc文件是否存在
+-f 是否存在,且是普通文件
+[ -f /opt/abc ]  && echo "存在且是普通文件"  || echo "文件不存在或者不是普通文件"
+-d 是否存在,且是目录
+[  ! -d /opt/xyz ]  && mkdir /opt/xyz    //测试目录xyz是否存在,如果不存在则创建 
+-r 是否可读 (对root无效)
+-w 是否可写 (对root无效)
+-x 是否可执行
+
+== 	!=	-z	! -z (-n,测试时,变量加引号)
+-eq -ne -gt -ge -lt -le
+-e  -d  -f   -r   -w   -x
+&&   ||   ; 
+
+if单分支
+
+if 条件测试  ; then
+	命令序列
+fi
+
+if 条件测试 
+then
+	命令序列
+fi
+
+read -p "请输入用户名"  u
+if [ -z $u ] ; then
+	echo "必须输入用户名"	
+	exit	
+fi
+useradd $u
+
+if双分支
+
+if 条件测试 ;then
+	命令序列1
+else
+	命令序列2
+fi
+
+ping命令结合选项增加工作效率
+-c ping的次数    
+-i 每隔多久ping一次,单位是秒
+-W 反馈结果的时间,如果不通时可加快反馈时间,单位是秒
+
+#!/bin/bash
+ping -c 3 -i 0.2 -W 1 172.25.0.11 &> /dev/null
+if [ $? -eq 0 ];then
+        echo "通了"
+else
+        echo "不通"
+fi
+
+#!/bin/bash
+ping -c 3 -i 0.2 -W 1 $1 &> /dev/null
+if [ $? -eq 0 ];then
+        echo "$1通了"
+else
+        echo "$1不通"
+fi
+
+
+
+
+
+if多分支
+
+if 条件测试 ;then
+	命令序列1
+elif 条件测试;then
+	命令序列2
+elif 条件测试;then
+	命令序列3
+else
+	命令序列X
+fi
+
+猜对了
+猜大了
+猜小了
+
+for  变量名  in  值列表
+do
+    命令序列
+done
+
+for循环,执行多次相同任务时使用
+基本用法:
+#!/bin/bash
+for i in a b     //有a b两个值,循环两次
+do
+	echo 123	//执行两次任务
+done
+利用for循环测试多台主机是否可以连通:
+#!/bin/bash
+for i in {1..15}   //准备15个值,循环15次,第一次ping,
+do						      变量i的值是1,依次类推
+ping -c 3 -i 0.2 -W 1 172.25.0.$i &> /dev/null
+if [ $? -eq 0 ];then
+        echo "172.25.0.$i通了"
+else
+        echo "172.25.0.$i不通"
+fi
+done
+
+
+100
+
+{1..100}
+`seq 100`
+
+
+while 条件测试
+do
+	任务序列
+done
+
+while :
+do
+	任务序列
+	sleep 1
+done
+
+#!/bin/bash
+x=$[RANDOM%101]
+a=0
+while :
+do
+        let a++
+        read -p "请输入一个数字(0-100)" n
+        if [ $x -eq $n ];then
+                echo "猜对了!猜了$a次"
+                exit
+        elif [ $n -lt $x ];then
+                echo "猜小了!"
+        else
+                echo "猜大了!"
+        fi
+
+done
+
+条件测试
+1,字符串
+==	!=	-z	  ! -z	 -n
+2,数字
+-eq -ne -gt -ge -lt -le
+3,文件
+-e	-f	-d	-r  -w  -x
+   &&         ||         ;
+
+单分支
+if 条件测试 ;then
+	命令序列
+fi
+双分支
+if 条件测试 ;then
+	命令序列1
+    else
+	命令序列2
+fi
+多分支
+if 条件测试 ;then
+	命令序列1
+elif 条件测试 ;then
+	命令序列2
+elif 条件测试 ;then
+	命令序列3
+else
+	命令序列X
+fi
+
+循环
+for 变量名 in {1..10} 或  `seq 10`
+do
+	命令序列
+done
+
+
+while :
+do
+	命令序列
+	
+done
+
+case分支, 是简化版本的if,代码编写比if精简,但功能不如if强大
+
+case 变量 in
+模式1)
+	命令序列;;
+模式2)
+	命令序列2;;
+*)
+	命令序列3
+esac
+
+case $1 in
+aa|a|A)
+	echo aaaaa;;
+bb)
+	echo bbbbb;;
+*)
+	echo "aa|bb"
+esac
+
+1,在真机找到/linux-soft/02,释放tar包
+tar -xf lnmp_soft.tar.gz -C /home/student
+
+2,进入释放的目录找到nginx-1.12.2.tar.gz文件,拷贝到虚拟机
+cd /home/student
+scp lnmp_soft/nginx-1.12.2.tar.gz root@172.25.0.10:/opt
+
+3,回到虚拟机编写一键源代码安装nginx服务的脚本
+#!/bin/bash
+yum -y install gcc openssl-devel pcre-devel
+tar -xf /opt/nginx-1.12.2.tar.gz
+cd nginx-1.12.2
+./configure
+make
+make install
+
+运行该脚本,自动安装nginx
+
+4,运行nginx服务
+cd /usr/local/nginx/sbin
+./nginx
+关闭防火墙后,打开火狐浏览器测试
+
+
+
+#!/bin/bash
+case $1 in
+st|start)
+	/usr/local/nginx/sbin/nginx;;
+stop)
+        /usr/local/nginx/sbin/nginx -s stop;;
+rest)
+	/usr/local/nginx/sbin/nginx -s stop
+	/usr/local/nginx/sbin/nginx;;
+stat)
+	netstat -ntulp | grep -q nginx
+	[ $? -eq 0 ] && echo "服务已启动" || echo "服务未启动";;
+*)
+	echo "st|stop|rest|stat"
+esac
+
+
+函数,可以定义公共的语句块,在脚本中反复调用,达到精简脚本的目的
+
+函数名 () {
+
+}
+
+#!/bin/bash
+abc () {        //定义函数,名字是abc
+mkdir $1		//函数中的任务是创建并进入目录
+cd $1
+}
+abc abc      //调用函数(函数名是刚刚创建的abc),创建并进入abc目录		
+
+脚本写完后使用 source  test4.sh 测试
+
+function 函数名称 {
+
+}
+
+#!/bin/bash
+abc () {
+echo -e "\033[$1m$2\033[0m"
+}
+
+abc 31 ABCDEFG
+abc 32 ABCDEFG
+abc 33 ABCDEFG
+abc 34 ABCDEFG
+abc 35 ABCDEFG
+abc 36 ABCDEFG
+abc 37 ABCDEFG
+
+
+exit  终止脚本程序
+break  跳出循环,执行循环后任务
+continue  结束本次循环,继续下一次循环
+
+#!/bin/bash
+x=0
+while :
+do
+	read -p "请输入数字(0是结束)"  n
+	[ -z $n ] && break		//没给任何数字就退出循环
+	[ $n -eq 0 ] && break	//给0也退出循环
+	let x+=n
+done
+echo "所有数字之和是$x"
+
+改良版
+#!/bin/bash
+x=0
+while :
+do
+        read -p "请输入数字(0是结束)"  n
+        [ -z $n ] || [ $n -eq 0 ] && break    //没给数字或者给的是0都退出循环
+        let x+=n
+done
+echo "所有数字之和是$x"
+
+
+1~20    找出6的倍数并分别加10
+
+#!/bin/bash
+for i in {1..20}
+do
+	x=$[i%6]    //x是余数
+	[ $x -ne 0 ] && continue   //如果余数不是0,结束本次循环,进入下一次循环
+	echo $[i+10]
+done
+
+
+字符串处理
+1,字符串截取
+
+RANDOM
+#!/bin/bash
+a=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789
+x=$[RANDOM%62]   //获取随机数0~61
+echo ${a:x:1}   //随机截取1位字符
+
+思考 ,如何得到8位随机字符?
+#!/bin/bash
+a=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789
+for i in {1..8}
+do
+x=$[RANDOM%62]
+pass=${a:x:1}
+pass2=$pass2$pass
+done
+echo $pass2
+
+2,字穿替换
+echo ${变量名/old/new}     //替换一个
+echo ${变量名//old/new}		//替换所有
+a=aabbcc
+echo ${a/aa/88}
+echo ${a/a/8}
+echo ${a/b/8}
+echo ${a/bb/88}
+echo ${a//b/8}
+
+3,字串删除
+echo ${a#}  掐头
+echo ${a%}  去尾 
+
+a=`head -1 /etc/passwd`     //定义变量
+[root@desktop0 opt]# echo ${a#root}   //从左往右删除,删除第一个root
+[root@desktop0 opt]# echo ${a##*root}  //从左往右删除,删除到最后一个root
+
+使用字串删除功能,编写批量修改扩展名的脚本
+#!/bin/bash
+for i in `ls *.txt`   //找到要改的所有文件,有多少个文件,就循环执行下面的命令多少次
+do
+	x=${i%.*}		//去掉扩展名,得到纯文件名
+	mv $i  $x.doc	 //将原本的文件修改成纯文件名.doc
+done
+升级版
+#!/bin/bash
+for i in `ls *.$1`  
+do
+	x=${i%.*}		
+	mv $i  $x.$2
+done
+
+
+定义变量初值(备用值)
+echo ${变量名:-初值}
+echo ${p:-123}		//定义备用值,如果变量p有值则不使用备用值
+
+case分支
+
+case 变量 in
+模式1|XXX|xxx)
+	执行指令;;
+模式2)
+	执行指令;;
+模式3)
+	执行指令;;
+*)
+	执行指令
+esac
+
+function 函数名{
+	执行指令1
+	执行指令2
+}
+
+函数名 (){
+	执行指令1
+	执行指令2
+}
+
+echo -e "\033[$1m$2\033[0m"
+
+exit   
+break
+continue
+
+字串处理
+${a:0:1}    截取 
+${a/}  		替换
+${a#}		掐头
+${a%}		去尾
+${a:-}		赋初值
+
+正则表达式
+基本正则符号
+^匹配开头字串     $匹配结尾字串       ^$匹配空行
+grep root txt		//找有root的行
+grep ^root txt		//找有以root开头的行
+grep bash$ txt		//找有以bash结尾的行
+grep ^$ txt			//找空行
+
+grep [rot] txt		//查找有字母r或者o或者t的行
+grep [bin] txt		//查找有字母b或者i或者n的行
+grep bas[hg] txt	//查找有bash或者basg的行
+grep [^rot] txt		//找出拥有除了r或者o或者t的行
+
+grep "[a-z]" txt     //找有小写字母的行
+grep "[^a-z]" txt	 //找拥有除了小写字母的行
+grep "[A-Z]" txt	 //找有大写字母的行
+grep "[A-Z]" /etc/shadow
+grep "[^A-Z]" /etc/shadow  //找拥有除了大写字母的行
+grep "[a-Z]" /etc/shadow   //找所有字母
+grep "[^a-Z]" /etc/shadow  //不找字母
+grep "[0-9]" /etc/shadow   //找数字
+
+grep "roo." txt	  //找roo开头,后面追加1个任意字符的行
+grep "ro.." txt	 //找ro开头,后面追加2个任意字符的行
+grep "." txt	 //找任意单个字符
+grep ".oot" txt  //找某字符开头后面是oot的行
+grep "*" txt     //不能单独使用什么也找不到
+grep "ro*ot" txt  //找root,第一个o可以出现任意次
+grep "ro*t" txt   //找rot,o可以出现任意次
+grep "bo*i" txt   //找boi,o可以出现任意次
+grep ".*" txt		//找任意
+
+grep "ro\{2,3\}t" txt   //找root或者rooot
+grep "ro\{2\}t" txt		//找root
+grep "ro\{3\}t" txt	    //找rooot
+grep "ro\{1\}t" txt		//找rot
+grep "ro\{2,\}t" txt 	//找rot,o可以出现2次以及2次以上
+grep "ro\{3,\}t" txt    //找rot,o可以出现3次以及3次以上
+grep "ro\{1,\}t" txt    //找rot,o可以出现1次以及1次以上
+
+grep "ro+t" txt        //grep不支持扩展正则
+grep -E "ro+t" txt 	   //增加-E选项后支持
+egrep "ro+t" txt	 //或egrep,找rot,o可以出现1次以及多次
+egrep "ro?t" txt   //找rot,o可以出现0次或1次
+egrep "ro?ot" txt   //找root,第一个o可以出现0次或1次
+grep "ro\{0,1\}ot" txt  //使用基本正则实现相同效果 
+egrep "ro{0,1}ot" txt  //扩展正则更精简
+
+\b   空,空格,tab,特殊符号
+
+egrep "r|o|t" txt     //找r或o或t
+egrep "bash|nologin"  txt    //找bash或nologin
+egrep "\bbin\b" txt	   //找bin,前后不能是数字,字母,下划线
+
+vim /etc/passwd
+
+sed  流式编辑器 ,可以非交互式修改文本,逐行操作,可以实现增删改查
+
+使用方法
+一,   前置命令 |  sed 选项  (定址符)指令
+二,  sed | 选项   (定址符)指令   文本
+选项
+-n 屏蔽默认输出
+-r 支持扩展正则
+-i 写入文件
+指令
+p  输出指定内容
+df | sed -n '1p'   //输出df指令生成的文本中第1行
+sed  'p' txt      //输出所有行2次
+sed -n 'p' txt      //输出所有行1次
+sed -n '1p' txt      //输出第1行
+sed -n '2p' txt      //输出第2行
+sed -n '1,2p' txt	 //输出1到2行
+sed -n '1,3p' txt    //输出1到3行
+sed -n '2,+4p' txt    //输出第2行,以及后面的4行
+sed -n '2p;4p' txt   //输出第2行,第4行
+sed -n '1~2p' txt    //输出第1行后间隔2行才输出一次,也就是135..
+
+sed -n '/^root/p' txt   //使用正则匹配查找内容
+sed -n '/bash$/p' txt	//输出以bash结尾的行
+sed -n '/bash$/p' /etc/passwd
+sed -n '/bin/p'  txt
+sed -n '/^bin/p'  txt
+sed -n '$='  txt      //输出最后一行的行号
+sed -n '='  txt       //输出每行的行号
+sed -n '$=' /etc/passwd   //查看主机所有账户数量
+
+d  删除
+sed  '1d' txt    //删第1行
+sed  '2d' txt
+sed  '2,5d' txt   //删2到5行
+sed  '2,+1d' txt   //删第2行以及后面1行
+sed  '2d;4d' txt   //删第2行,第4行
+sed  '1~2d' txt   //删奇数行
+sed  '2~2d' txt   //删偶数行
+
+sed -i '5d' txt    //删除第5行,并写入文件
+sed '/^root/d' txt    //删除以root开头的行
+sed -r '/bash|nologin/d' txt    //删除有bash或nologin的行
+
+s 替换
+sed 's/old/new/'
+
+/bin/bash  替换成  /sbin/sh
+sed 's//bin/bash//sbin/sh/' txt    //替换失败,替换符号冲突
+sed 's#/bin/bash#/sbin/sh#' txt	   //更换替换符号为#
+sed 's(/bin/bash(/sbin/sh(' txt    //更换替换符号为(
+
+
+sed 's/.//2;s/.$//' txt3     //利用替换功能,删除每行的第2个字符和最后一个字符
+sed 's/[0-9]//g' txt3   //利用替换,删除所有数字
+
+
+\(\)  保留     \1   \2  \3
+()   划分范围
+
+egrep "(bin:/){2}" txt     //找2个连续的bin:/
+
+sed -r 's/^(.)(.*)(.)$/\3\2\1/' txt3   //将文本中第一个字符和最后一个字符互换
+
+sed -r 's/([A-Z])/[\1]/g' txt3
+
+编写脚本,实现vsftpd服务装包配置启服务的全过程,开启上传功能
+#!/bin/bash
+yum -y install vsftpd &> /dev/null
+sed -i 's/^#anon_u/anon_u/' /etc/vsftpd/vsftpd.conf
+systemctl restart vsftpd
+systemctl enable vsftpd
+chmod o+w /var/ftp/pub
+
+测试时关闭防火墙和selinux
+
+-n   -r   -i
+p   d   s
+a行后追加     i行前添加   c替换行
+sed 'a 888' txt5    //每行下添加888
+sed '2a 888' txt5    //第二行下添加888
+sed '1,2a 888' txt5   //第1到2行下添加888
+sed 'i 888' txt5     //每行上添加888
+sed '3i 888' txt5    //第3行上添加888
+sed '/A/a 888' txt5   //有A的行下添加888
+sed 'c 888' txt5     //所有行替换成888
+sed '1c 888' txt5    //第1行替换成888
+
+如何使用sed和字符串处理判断yum仓库好坏?
+
+vim
+grep
+sed  非交互式编辑文本
+awk  搜索
+
+awk '{print}' txt			//输出文档所有内容
+awk '{print $1}' txt	//输出文档每行第1列,默认用空格做分隔符
+awk '{print $1 $3}' txt  //输出文档每行第1列,第3列
+
+head -1 /etc/passwd > txt2    //准备新素材
+awk '{print $2}' txt2      //输出第2列,无显示,没有空格做默认分隔符,当前文档一整行算一列
+awk -F: '{print $5}' txt2  //使用:做分隔符,显示第5列
+awk -F: '{print $7}' txt2	//使用:做分隔符,显示第5列
+
+awk内置变量
+$1  $2  $3 .....  NR行   NF列
+
+awk -F[:/] '{print $9}' txt2  //使用多个分隔符后显示第9列
+awk -F[:/] '{print NF}' txt2   //显示有几列
+awk -F[:/] '{print NR}' txt2    //显示第几行
+awk -F[:/] '{print NR NF}' txt2   //都显示,看不清
+awk -F[:/] '{print NR,NF}' txt2   //加逗号有空格效果
+awk -F[:/] '{print NR" "NF}' txt2  //或把空格引起来
+awk -F[:/] '{print "当前行有"NF"列"}' txt2  //常量配合变量输出
+awk -F[:/] '{print "当前行有NF列"}' txt2   //变量不能在双引号内,否则变常量输出
+
+ifconfig eth0 |awk '/RX p/{print "当前网卡接收的流量是"$5"字节"}'
+ifconfig eth0 |awk '/TX p/{print "当前网卡发送的流量是"$5"字节"}'
+
+df -h | awk '/vda1/{print "磁盘可用空间是"$4}'
+
+
+awk '/Failed/{print $11}' /var/log/secure   //在安全日志中查找访问本机失败的ip地址记录
+
+awk流程控制:
+BEGIN任务  执行1次
+逐行任务 	   执行多次,与文本有关
+END任务      执行1次
+
+awk  [选项]  ' BEGIN{指令} {指令} END{指令}'  文件
+
+awk -F: 'BEGIN{print "User\tUID\tHome"}{print $1"\t"$3"\t"$6}END{print "总计",NR,"行"}'  txt3    //按需求的格式输出文档内容, 有表头,有结尾统计
+
+awk处理条件
+
+1,正则      ~包含     !~不包含
+awk -F: '$1~/root/' /etc/passwd     //输出第1列包含root的行
+awk -F: '$7!~/nologin$/{print $1,$7}' /etc/passwd    //输出第7列不包含nologin的行的第1列和第7列
+
+2,使用数字或字符做条件   ==   !=   >   <    >=   <=
+awk 'NR==5{print}' txt3    //输出第5行
+awk 'NR!=5' txt3		 //输出的结果不要第5行
+awk -F: '$3==0' txt3	 //输出第三列等于0的行
+awk -F: '$1==root' txt3   //输出第1列等于root的行,没加引号无效
+awk -F: '$1=="root"' txt3   //要求同上,加引号可以正常输出
+awk -F: '$1!="root"' txt3	//输出第一列不是root的行
+awk -F: '$3>1000' /etc/passwd   //输出第3列大于1000的行
+awk -F: '$3>=1000' /etc/passwd   //大于等于
+awk -F: '$3<=10' /etc/passwd    //小于等于
+
+3使用逻辑符号     &&        ||
+awk -F: '$3<=10 && $3>1000' /etc/passwd   //找小于等于10并且大于1000的,逻辑错误,找不到
+awk -F: '$3<=10 || $3>1000' /etc/passwd  //改成或者可以找到
+awk -F: '$3>10 && $3<1000' /etc/passwd   //找大于10并且小于1000的
+awk -F: '$3<10 && $3>1000' /etc/passwd  //逻辑错误找不到
+awk 'NR>=2 && NR<=4' txt3
+
+使用awk按需求输出文档内容    用户名 -->  密码
+#!/bin/bash
+u=`awk -F: '/bash$/{print $1}' /etc/passwd`    //首先找到哪些用户使用的解释器是bash,找到这些用户后把名字赋予变量u
+for i in $u     //把这些找到的用户名轮番交给for循环处理
+do
+    grep $i /etc/shadow | awk -F: '{print $1" --> "$2}'  //如果第一次循环到的账户是root,那么grep root 可以找到shadow文档中对应的行,包含用户和密码,再使用awk筛选输出第1列用户名-->第2列密码
+
+done
+
+awk  搜索 过滤 文本
+-F:  {print $1 $3}  
+$0 $1 $2 $3  NR  NF
+
+awk 条件
+正则  ~   !~
+数字和字符
+==    !=    >    >=    <    <=
+&&   ||
+
+if(){}
+
+for(i in $a){}
+
+数组可以使用一个数组名称存储多个值
+
+数组名[下标1]=值1
+数组名[下标2]=值2
+数组名[下标3]=值3
+
+awk 'BEGIN{a[0]=10;a[1]=20;print a[1]}'
+awk 'BEGIN{a[0]=10;a[1]=20;print a[0]}'
+awk 'BEGIN{a["abc"]=10;a["xyz"]=20;print a["abc"]}'
+awk 'BEGIN{a["abc"]=10;a["xyz"]=20;print a["xyz"]}'
+awk 'BEGIN{a["abc"]="aabbcc";a["xyz"]="xxyyzz";print a["xyz"]}'
+
+
+a[aaa]=4      a[192.168.0.1]=4
+a[bbb]=2      a[192.168.0.2]=2
+a[ccc]=1      a[192.168.0.3]=1
+
+awk '{a[$1]++}END{for(i in a){print i,a[i]}}'  txt4 
+
+192.168.0.1
+192.168.0.1
+192.168.0.2
+192.168.0.3
+192.168.0.1
+192.168.0.2
+192.168.0.1
+
+
+
+准备测试环境:
+yum -y install httpd    //安装服务
+netstat -ntulp | grep :80   //检查那个服务占用了80端口
+/usr/local/nginx/sbin/nginx -s stop   //如果是nginx需要关闭
+killall nginx
+systemc restart httpd   //开启服务
+echo 123 > /var/www/html/index.html  //创建httpd的默认页面
+
+curl http://172.25.0.10/index.html  //测试
+123
+cat /var/log/httpd/access_log   //httpd的日志,每次被访问,都会添加新记录
+
+
+yum -y install httpd-tools   //ab工具安装包
+ab -c 1 -n 50000 http://172.25.0.10/index.html   //使用ab测试网站访问量,-c是用户数量, -n是访问次数 
+
+awk '{ip[$1]++}END{for(i in ip){print i,ip[i]}}' /var/log/httpd/access_log    //使用awk可以统计日志中的访问量
+
+sort -r txt5   //sort排序 默认升序, -r降序
+
+cpu负载,内存容量,硬盘空间,网卡流量,安装的软件包数量,账户数量,当前登录的账户数量
+
+uptime | awk '{print "cpu平均负载是" $10,$11,$12}'
+free -m | awk '/^Mem/{print "主机剩余内 存"$4"M"}'
+df -h | awk '/vda1/{print "硬盘剩余空间 是"$4}'
+ifconfig eth0 | awk '/RX p/{print "网卡eth0接收的数据量是"$5"字节"}'
+p=`rpm -qa |wc -l`
+echo "当前主机安装的软件包数量是$p"
+awk '{x++}END{print "主机拥有账户总数是"x"个"}'  /etc/passwd
+x=`who |wc -l`
+echo "当前登录账户数量是$x个"
+psn=`ps aux |wc -l`
+echo "主机运行的进程有$psn个"
+
+================================
+#!/bin/bash
+while :
+do
+awk '{x++}END{print "主机拥有账户总数是"x"个"}'  /etc/passwd
+x=`who |wc -l`
+echo "当前登录账户数量是$x个"
+psn=`ps aux |wc -l`
+echo "主机运行的进程有$psn个"
+uptime | awk '{print "cpu平均负载是" $10,$11,$12}'
+free -m | awk '/^Mem/{print "主机剩余内 存"$4"M"}'
+df -h | awk '/vda1/{print "硬盘剩余空间 是"$4}'
+ifconfig eth0 | awk '/RX p/{print "网卡eth0接收的数据量是"$5"字节"}'
+p=`rpm -qa |wc -l`
+echo "当前主机安装的软件包数量是$p"
+sleep 2
+clear
+done		
+
+
+
+192.168.0.1    Failed     /var/log/secure
+192.168.0.1    Failed     /var/log/secure
+
+
+awk '/Failed/{ip[$11]++}END{for(i in ip){print i,ip[i]}}' /var/log/secure
+
+编写监控脚本,如果查到有人访问本机密码输错超过三次则发邮件通知管理员
+#!/bin/bash
+x=`awk '/Failed/{ip[$11]++}END{for(i in ip){print i","ip[i]}}' /var/log/secure`
+for i in $x
+do
+     p=${i%,*}    //变量p内容是ip
+     s=${i#*,}    //变量s内容是输错密码的次数
+      [ $s -gt 3  ] && echo "报警! $p访问本机失败了$s次,赶紧处理
+" | mail -s test root
+done
